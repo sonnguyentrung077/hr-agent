@@ -32,7 +32,7 @@ async def run_pipeline(ws: WebSocket, user_text: str, history: list[dict]):
     )
     tts_thread.start()
 
-    gpt_task = asyncio.create_task(_gpt_stream(history, text_q))
+    gpt_task = asyncio.create_task(_gpt_stream(ws, history, text_q))
     audio_task = asyncio.create_task(_audio_sender(ws, audio_q))
 
     full_response = await gpt_task
@@ -55,7 +55,7 @@ async def run_pipeline(ws: WebSocket, user_text: str, history: list[dict]):
 
 
 async def _gpt_stream(
-    history: list[dict], text_q: asyncio.Queue[str | None]
+    ws: WebSocket, history: list[dict], text_q: asyncio.Queue[str | None]
 ) -> str:
     t = time.time()
     log.info(f"[GPT] Streaming ({MODEL})...")
@@ -75,6 +75,7 @@ async def _gpt_stream(
         if not full:
             log.info(f"[GPT] First token at {time.time()-t:.2f}s")
         full += delta.content
+        await ws.send_json({"type": "response_text", "token": delta.content})
 
         if not first_pushed:
             buf += delta.content
