@@ -9,12 +9,22 @@ from fastapi import WebSocket, WebSocketDisconnect
 from .config import AAI_URL, ASSEMBLY_KEY, SYSTEM_PROMPT
 from .dependencies import log
 from .pipeline import run_pipeline
+from .rtc_handler import sessions
 
 
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     responding = False
+
+    # Look up avatar engine from WebRTC session
+    session_id = ws.query_params.get("session_id")
+    session = sessions.get(session_id) if session_id else None
+    avatar_engine = session.engine if session else None
+    if avatar_engine:
+        log.info("[WS] Bound to avatar session %s", session_id)
+    else:
+        log.info("[WS] No avatar session — audio-only mode")
 
     async def process_turn(text: str):
         nonlocal responding
@@ -23,7 +33,7 @@ async def ws_endpoint(ws: WebSocket):
         responding = True
         try:
             await ws.send_json({"type": "status", "status": "thinking"})
-            await run_pipeline(ws, text, history)
+            await run_pipeline(ws, text, history, avatar_engine)
             await ws.send_json({"type": "status", "status": "listening"})
         except Exception as e:
             log.error(f"[PIPELINE] {e}", exc_info=True)

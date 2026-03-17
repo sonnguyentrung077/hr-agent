@@ -1,9 +1,12 @@
-"""Pipeline: GPT streaming -> Cartesia TTS -> audio delivery."""
+"""Pipeline: GPT streaming -> Cartesia TTS -> audio delivery (WS or avatar)."""
 
 import asyncio
 import threading
 import time
+from typing import TYPE_CHECKING
 
+import numpy as np
+import resampy
 from cartesia import Cartesia
 from fastapi import WebSocket
 
@@ -12,14 +15,25 @@ from .config import (
     CARTESIA_MODEL,
     CARTESIA_VOICE_ID,
     MODEL,
+    SAMPLE_RATE_AVATAR,
     SAMPLE_RATE_TTS,
     SENTENCE_ENDS,
     TTS_LANGUAGE,
 )
 from .dependencies import log, openai_client
 
+if TYPE_CHECKING:
+    from .avatar import AvatarEngine
 
-async def run_pipeline(ws: WebSocket, user_text: str, history: list[dict]):
+AVATAR_CHUNK = SAMPLE_RATE_AVATAR // 50  # 320 samples (20ms at 16kHz)
+
+
+async def run_pipeline(
+    ws: WebSocket,
+    user_text: str,
+    history: list[dict],
+    avatar_engine: "AvatarEngine | None" = None,
+):
     t0 = time.time()
     history.append({"role": "user", "content": user_text})
 
@@ -33,7 +47,11 @@ async def run_pipeline(ws: WebSocket, user_text: str, history: list[dict]):
     tts_thread.start()
 
     gpt_task = asyncio.create_task(_gpt_stream(ws, history, text_q))
-    audio_task = asyncio.create_task(_audio_sender(ws, audio_q))
+
+    if avatar_engine is not None:
+        audio_task = asyncio.create_task(_avatar_feeder(avatar_engine, audio_q))
+    else:
+        audio_task = asyncio.create_task(_audio_sender(ws, audio_q))
 
     full_response = await gpt_task
     await audio_task
@@ -157,6 +175,7 @@ def _tts_worker(
 async def _audio_sender(
     ws: WebSocket, audio_q: asyncio.Queue[bytes | None | Exception]
 ):
+    """Fallback: send raw TTS audio over WebSocket (no avatar)."""
     n = 0
     while True:
         item = await audio_q.get()
@@ -170,3 +189,49 @@ async def _audio_sender(
         n += 1
     log.info(f"[AUDIO] {n} chunks sent to client")
     await ws.send_json({"type": "audio_chunk_end"})
+
+
+# ─── Avatar feeder ─────────────────────────────────────────────────────────
+
+
+async def _avatar_feeder(
+    avatar_engine: "AvatarEngine",
+    audio_q: asyncio.Queue[bytes | None | Exception],
+):
+    """Resample TTS audio (44.1kHz F32LE) to 16kHz, chop into 20ms chunks,
+    and feed to the avatar engine for Wav2Lip processing."""
+    buffer = np.array([], dtype=np.float32)
+    is_first = True
+    n_chunks = 0
+
+    while True:
+        item = await audio_q.get()
+        if item is None:
+            break
+        if isinstance(item, Exception):
+            log.error(f"[AVATAR_FEED] TTS error: {item}")
+            break
+
+        pcm = np.frombuffer(item, dtype=np.float32)
+        resampled = resampy.resample(pcm, SAMPLE_RATE_TTS, SAMPLE_RATE_AVATAR)
+        buffer = np.concatenate([buffer, resampled])
+
+        while len(buffer) >= AVATAR_CHUNK:
+            event = {"status": "start"} if is_first else None
+            avatar_engine.put_audio_chunk(buffer[:AVATAR_CHUNK], event)
+            buffer = buffer[AVATAR_CHUNK:]
+            is_first = False
+            n_chunks += 1
+
+    # Flush remaining audio
+    if len(buffer) > 0:
+        padded = np.zeros(AVATAR_CHUNK, dtype=np.float32)
+        padded[: len(buffer)] = buffer
+        avatar_engine.put_audio_chunk(padded, {"status": "end"})
+        n_chunks += 1
+    else:
+        avatar_engine.put_audio_chunk(
+            np.zeros(AVATAR_CHUNK, dtype=np.float32), {"status": "end"}
+        )
+
+    log.info(f"[AVATAR_FEED] {n_chunks} chunks fed to avatar engine")

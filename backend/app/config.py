@@ -23,12 +23,21 @@ CARTESIA_VOICE_ID = "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"
 
 SAMPLE_RATE_IN = 16000
 SAMPLE_RATE_TTS = 44100
+SAMPLE_RATE_AVATAR = 16000
 TTS_LANGUAGE = "sk"
+
+# ─── Avatar / Wav2Lip ────────────────────────────────────────────────────────
+
+WAV2LIP_MODEL_PATH = os.getenv("WAV2LIP_MODEL_PATH", "models/wav2lip.pth")
+AVATAR_PATH = os.getenv("AVATAR_PATH", "data/avatars/wav2lip256_avatar1")
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "4"))
 
 # ─── Prompts ─────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = (
-    "Ste užitočný hlasový asistent. Odpovede udržiavajte stručné a konverzačné."
+    "Ste AI pohovorový asistent, ktorý vedie profesionálny pracovný pohovor. "
+    "Buďte konverzační, pýtajte sa doplňujúce otázky a odpovede udržiavajte stručné (1-3 vety). "
+    "Nepoužívajte markdown, odrážky ani špeciálne formátovanie — hovorte prirodzene."
 )
 
 SENTENCE_ENDS = frozenset(".!?。！？")

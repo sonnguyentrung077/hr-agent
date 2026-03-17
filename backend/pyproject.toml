@@ -9,7 +9,16 @@ dependencies = [
     "openai>=1.50.0",
     "websockets>=13.0",
     "cartesia>=1.0.0",
+    # Avatar / Wav2Lip
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "opencv-python-headless>=4.8.0",
+    "librosa>=0.10.0",
+    "scipy>=1.11.0",
+    "resampy>=0.4.0",
+    "aiortc>=1.9.0",
+    "av>=12.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["app", "wav2lip"]
