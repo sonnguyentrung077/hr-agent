@@ -79,10 +79,40 @@ async def offer(request: Request):
     transceiver = pc.getTransceivers()[1]  # video transceiver
     transceiver.setCodecPreferences(prefs)
 
+    _disconnect_task: asyncio.Task | None = None
+
     @pc.on("connectionstatechange")
     async def on_state():
+        nonlocal _disconnect_task
         log.info("[RTC] session=%s state=%s", session_id, pc.connectionState)
-        if pc.connectionState in ("failed", "closed", "disconnected"):
+
+        if pc.connectionState == "disconnected":
+            # Grace period — let ICE recover on slow networks (3G etc.)
+            async def _grace():
+                log.info("[RTC] session=%s disconnected — waiting 15s for recovery", session_id)
+                await asyncio.sleep(15)
+                if pc.connectionState in ("disconnected", "failed"):
+                    log.info("[RTC] session=%s did not recover — closing", session_id)
+                    session = sessions.pop(session_id, None)
+                    if session:
+                        session.closed.set()
+                        await session.pc.close()
+
+            if _disconnect_task is None or _disconnect_task.done():
+                _disconnect_task = asyncio.create_task(_grace())
+            return
+
+        if pc.connectionState == "connected":
+            # Recovered — cancel grace timer
+            if _disconnect_task and not _disconnect_task.done():
+                log.info("[RTC] session=%s reconnected — cancelling grace timer", session_id)
+                _disconnect_task.cancel()
+                _disconnect_task = None
+            return
+
+        if pc.connectionState in ("failed", "closed"):
+            if _disconnect_task and not _disconnect_task.done():
+                _disconnect_task.cancel()
             session = sessions.pop(session_id, None)
             if session:
                 log.info("[RTC] Cleaning up session %s", session_id)
