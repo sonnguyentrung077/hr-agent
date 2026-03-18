@@ -35,6 +35,7 @@ class Session:
     engine: AvatarEngine
     pc: RTCPeerConnection
     player: HumanPlayer
+    closed: asyncio.Event
 
 
 sessions: dict[str, Session] = {}
@@ -85,9 +86,10 @@ async def offer(request: Request):
             session = sessions.pop(session_id, None)
             if session:
                 log.info("[RTC] Cleaning up session %s", session_id)
+                session.closed.set()
                 await session.pc.close()
 
-    sessions[session_id] = Session(engine=engine, pc=pc, player=player)
+    sessions[session_id] = Session(engine=engine, pc=pc, player=player, closed=asyncio.Event())
 
     await pc.setRemoteDescription(remote_offer)
     answer = await pc.createAnswer()

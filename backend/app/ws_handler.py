@@ -21,6 +21,7 @@ async def ws_endpoint(ws: WebSocket):
     session_id = ws.query_params.get("session_id")
     session = sessions.get(session_id) if session_id else None
     avatar_engine = session.engine if session else None
+    session_closed = session.closed if session else None
     if avatar_engine:
         log.info("[WS] Bound to avatar session %s", session_id)
     else:
@@ -29,6 +30,9 @@ async def ws_endpoint(ws: WebSocket):
     async def process_turn(text: str):
         nonlocal responding
         if not text or responding:
+            return
+        if session_closed and session_closed.is_set():
+            log.info("[WS] Ignoring turn — RTC session closed")
             return
         responding = True
         try:
@@ -103,9 +107,22 @@ async def ws_endpoint(ws: WebSocket):
                     except Exception:
                         pass
 
-            await asyncio.gather(
-                recv_aai(), recv_client(), return_exceptions=True
+            async def watch_rtc():
+                if not session_closed:
+                    return
+                await session_closed.wait()
+                log.info("[WS] RTC session %s closed — tearing down", session_id)
+
+            tasks = [
+                asyncio.create_task(recv_aai()),
+                asyncio.create_task(recv_client()),
+                asyncio.create_task(watch_rtc()),
+            ]
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_COMPLETED
             )
+            for t in pending:
+                t.cancel()
 
     except Exception as e:
         log.error(f"[WS] {e}", exc_info=True)
