@@ -16,6 +16,7 @@ async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     turn_queue: asyncio.Queue[str] = asyncio.Queue()
+    responding = asyncio.Event()  # set while bot is speaking
 
     # Look up avatar engine from WebRTC session
     session_id = ws.query_params.get("session_id")
@@ -35,6 +36,7 @@ async def ws_endpoint(ws: WebSocket):
                 log.info("[WS] Ignoring turn — RTC session closed")
                 turn_queue.task_done()
                 continue
+            responding.set()
             try:
                 await ws.send_json({"type": "status", "status": "thinking"})
                 await run_pipeline(ws, text, history, avatar_engine)
@@ -42,6 +44,7 @@ async def ws_endpoint(ws: WebSocket):
             except Exception as e:
                 log.error(f"[PIPELINE] {e}", exc_info=True)
             finally:
+                responding.clear()
                 turn_queue.task_done()
 
     async def enqueue_turn(text: str):
@@ -76,6 +79,10 @@ async def ws_endpoint(ws: WebSocket):
                             f"text={text[:80]!r}"
                         )
                         if is_final and text:
+                            # Drop transcriptions while bot is speaking (echo)
+                            if responding.is_set():
+                                log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
+                                continue
                             log.info(f"[STT FINAL] {text}")
                             await ws.send_json(
                                 {"type": "final_transcript", "text": text}

@@ -140,7 +140,13 @@ export default function App() {
           const recCtx = new AudioContext({ sampleRate: 16000 });
           recCtxRef.current = recCtx;
           const micStream = await navigator.mediaDevices.getUserMedia({
-            audio: { channelCount: 1, sampleRate: 16000 },
+            audio: {
+              channelCount: 1,
+              sampleRate: 16000,
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
           });
           streamRef.current = micStream;
           await recCtx.audioWorklet.addModule("/audio-processor.js");

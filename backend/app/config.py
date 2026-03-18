@@ -58,6 +58,7 @@ AAI_PARAMS = {
     "sample_rate": SAMPLE_RATE_IN,
     "speech_model": "whisper-rt",
     "language_detection": True,
+    "languages": "sk,en",
     "end_of_turn_silence_threshold": 500,
 }
 AAI_URL = f"wss://streaming.assemblyai.com/v3/ws?{urlencode(AAI_PARAMS)}"
