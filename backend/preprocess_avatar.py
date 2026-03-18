@@ -14,7 +14,7 @@ import os
 import pickle
 
 import cv2
-import face_detection
+from wav2lip import face_detection
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -138,6 +138,9 @@ def main():
         img = cv2.imread(input_path)
         if img is None:
             raise FileNotFoundError(f"Could not read image: {input_path}")
+        # H264 requires even dimensions
+        h, w = img.shape[:2]
+        img = img[: h - h % 2, : w - w % 2]
         cv2.imwrite(os.path.join(full_imgs_path, "00000000.png"), img)
         frames = [img]
     else:
