@@ -20,5 +20,8 @@ dependencies = [
     "av>=12.0.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["app", "wav2lip"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["app", "wav2lip"]

@@ -42,6 +42,16 @@ SYSTEM_PROMPT = (
 
 SENTENCE_ENDS = frozenset(".!?。！？")
 
+# ─── CORS ────────────────────────────────────────────────────────────────────
+
+PORT = int(os.getenv("PORT", "8001"))
+
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "*").split(",")
+    if o.strip()
+]
+
 # ─── AssemblyAI ──────────────────────────────────────────────────────────────
 
 AAI_PARAMS = {

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
-const BACKEND = "http://localhost:8001";
-const WS_BASE = "ws://localhost:8001";
+const BACKEND = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8001";
+const WS_BASE = BACKEND.replace(/^http/, "ws");
 
 interface Message {
   role: "user" | "assistant";

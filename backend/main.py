@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,4 +58,4 @@ app.websocket("/ws")(ws_endpoint)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8001)
+    uvicorn.run("main:app", reload=True, host="0.0.0.0", port=config.PORT)
