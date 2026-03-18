@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
@@ -11,12 +12,15 @@ from .dependencies import log
 from .pipeline import run_pipeline
 from .rtc_handler import sessions
 
+ECHO_COOLDOWN = 1.5  # seconds after bot stops before accepting mic audio
+
 
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     turn_queue: asyncio.Queue[str] = asyncio.Queue()
     responding = asyncio.Event()  # set while bot is speaking
+    respond_end_time = [0.0]  # mutable container for cooldown timestamp
 
     # Look up avatar engine from WebRTC session
     session_id = ws.query_params.get("session_id")
@@ -45,6 +49,7 @@ async def ws_endpoint(ws: WebSocket):
                 log.error(f"[PIPELINE] {e}", exc_info=True)
             finally:
                 responding.clear()
+                respond_end_time[0] = time.time()
                 turn_queue.task_done()
 
     async def enqueue_turn(text: str):
@@ -79,8 +84,8 @@ async def ws_endpoint(ws: WebSocket):
                             f"text={text[:80]!r}"
                         )
                         if is_final and text:
-                            # Drop transcriptions while bot is speaking (echo)
-                            if responding.is_set():
+                            # Drop echo: while bot speaks OR during cooldown
+                            if responding.is_set() or (time.time() - respond_end_time[0]) < ECHO_COOLDOWN:
                                 log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
                                 continue
                             log.info(f"[STT FINAL] {text}")
@@ -106,7 +111,9 @@ async def ws_endpoint(ws: WebSocket):
                         if msg.get("type") == "websocket.disconnect":
                             break
                         if "bytes" in msg:
-                            await aai.send(msg["bytes"])
+                            # Gate mic audio: don't feed echo into STT
+                            if not responding.is_set() and (time.time() - respond_end_time[0]) > ECHO_COOLDOWN:
+                                await aai.send(msg["bytes"])
                         elif "text" in msg:
                             ctrl = json.loads(msg["text"])
                             if ctrl.get("type") == "end_session":
