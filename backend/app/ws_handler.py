@@ -15,7 +15,7 @@ from .rtc_handler import sessions
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-    responding = False
+    turn_queue: asyncio.Queue[str] = asyncio.Queue()
 
     # Look up avatar engine from WebRTC session
     session_id = ws.query_params.get("session_id")
@@ -27,22 +27,28 @@ async def ws_endpoint(ws: WebSocket):
     else:
         log.info("[WS] No avatar session — audio-only mode")
 
-    async def process_turn(text: str):
-        nonlocal responding
-        if not text or responding:
+    async def turn_worker():
+        """Process queued turns one at a time."""
+        while True:
+            text = await turn_queue.get()
+            if session_closed and session_closed.is_set():
+                log.info("[WS] Ignoring turn — RTC session closed")
+                turn_queue.task_done()
+                continue
+            try:
+                await ws.send_json({"type": "status", "status": "thinking"})
+                await run_pipeline(ws, text, history, avatar_engine)
+                await ws.send_json({"type": "status", "status": "listening"})
+            except Exception as e:
+                log.error(f"[PIPELINE] {e}", exc_info=True)
+            finally:
+                turn_queue.task_done()
+
+    async def enqueue_turn(text: str):
+        if not text:
             return
-        if session_closed and session_closed.is_set():
-            log.info("[WS] Ignoring turn — RTC session closed")
-            return
-        responding = True
-        try:
-            await ws.send_json({"type": "status", "status": "thinking"})
-            await run_pipeline(ws, text, history, avatar_engine)
-            await ws.send_json({"type": "status", "status": "listening"})
-        except Exception as e:
-            log.error(f"[PIPELINE] {e}", exc_info=True)
-        finally:
-            responding = False
+        log.info(f"[QUEUE] Enqueued turn (depth={turn_queue.qsize()}): {text[:80]!r}")
+        await turn_queue.put(text)
 
     log.info(f"[AAI] Connecting to {AAI_URL[:80]}...")
     try:
@@ -74,7 +80,7 @@ async def ws_endpoint(ws: WebSocket):
                             await ws.send_json(
                                 {"type": "final_transcript", "text": text}
                             )
-                            asyncio.create_task(process_turn(text))
+                            await enqueue_turn(text)
                         elif text:
                             await ws.send_json(
                                 {"type": "partial_transcript", "text": text}
@@ -113,10 +119,12 @@ async def ws_endpoint(ws: WebSocket):
                 await session_closed.wait()
                 log.info("[WS] RTC session %s closed — tearing down", session_id)
 
+            worker_task = asyncio.create_task(turn_worker())
             tasks = [
                 asyncio.create_task(recv_aai()),
                 asyncio.create_task(recv_client()),
                 asyncio.create_task(watch_rtc()),
+                worker_task,
             ]
             done, pending = await asyncio.wait(
                 tasks, return_when=asyncio.FIRST_COMPLETED
