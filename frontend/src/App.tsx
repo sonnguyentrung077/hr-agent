@@ -308,127 +308,128 @@ export default function App() {
           ? "Listening..."
           : "";
 
+  // Get the last assistant message and last user message for subtitle display
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  // All messages except the most recent ones shown as subtitles
+  const historyMessages = messages.slice(0, Math.max(0, messages.length - 2));
+
   return (
     <div className="app">
-      <h1>HR Interview Assistant</h1>
+      {/* ---- Video Stage ---- */}
+      <div className="video-stage">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="avatar-video"
+        />
+        <audio ref={audioRef} autoPlay />
+        {!sessionActive && (
+          <div className="avatar-placeholder">Start a session to begin</div>
+        )}
 
-      <div className="split">
-        {/* ---- Left: Avatar + controls ---- */}
-        <div className="left-panel">
-          <div className="avatar-container">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="avatar-video"
-            />
-            <audio ref={audioRef} autoPlay />
-            {!sessionActive && (
-              <div className="avatar-placeholder">Avatar will appear here</div>
+        {/* Status badge */}
+        {statusLabel && (
+          <div className={`video-status ${status}`}>
+            <span className="dot" />
+            {statusLabel}
+            {resTime != null && <span className="res-time">{resTime}s</span>}
+          </div>
+        )}
+
+        {/* Subtitle overlay */}
+        {sessionActive && (lastAssistant || lastUser || partial) && (
+          <div className="subtitle-overlay">
+            {lastUser && (
+              <div className="subtitle-line user">{lastUser.text}</div>
+            )}
+            {lastAssistant && (
+              <div className="subtitle-line assistant">{lastAssistant.text}</div>
+            )}
+            {partial && (
+              <div className="subtitle-line partial">{partial}...</div>
             )}
           </div>
+        )}
+      </div>
 
-          <div className="controls">
+      {/* ---- Controls Bar ---- */}
+      <div className="controls-bar">
+        <button
+          className={`session-btn ${sessionActive ? "active" : ""}`}
+          onClick={sessionActive ? stopSession : startSession}
+          disabled={loading}
+        >
+          {loading ? "Connecting..." : sessionActive ? "End Session" : "Start Session"}
+        </button>
+
+        {sessionActive && (
+          <>
             <button
-              className={`session-btn ${sessionActive ? "active" : ""}`}
-              onClick={sessionActive ? stopSession : startSession}
-              disabled={loading}
+              className={`mic-btn ${micOpen ? "active" : ""} ${status === "thinking" ? "thinking" : ""}`}
+              onMouseDown={onPttDown}
+              onMouseUp={onPttUp}
+              onMouseLeave={!micLocked && micOpen ? closeMic : undefined}
+              onTouchStart={onPttDown}
+              onTouchEnd={onPttUp}
+              aria-label="Push to talk"
             >
-              {loading ? "Connecting..." : sessionActive ? "End Session" : "Start Session"}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="2" width="6" height="11" rx="3" />
+                <path d="M5 10a7 7 0 0 0 14 0" />
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <line x1="8" y1="22" x2="16" y2="22" />
+              </svg>
+              {micOpen && <span className="pulse-ring" />}
+              {micOpen && <span className="pulse-ring delay" />}
             </button>
 
-            {sessionActive && (
-              <div className="mic-controls">
-                {/* Big button: push-to-talk (hold) */}
-                <button
-                  className={`mic-btn ${micOpen ? "active" : ""} ${status === "thinking" ? "thinking" : ""}`}
-                  onMouseDown={onPttDown}
-                  onMouseUp={onPttUp}
-                  onMouseLeave={!micLocked && micOpen ? closeMic : undefined}
-                  onTouchStart={onPttDown}
-                  onTouchEnd={onPttUp}
-                  aria-label="Push to talk"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <button
+              className={`mic-lock-btn ${micLocked ? "locked" : ""}`}
+              onClick={toggleMicLock}
+              aria-label={micLocked ? "Turn off mic" : "Keep mic on"}
+              title={micLocked ? "Mic is always on \u2014 click to turn off" : "Click to keep mic always on"}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                {micLocked ? (
+                  <>
                     <rect x="9" y="2" width="6" height="11" rx="3" />
                     <path d="M5 10a7 7 0 0 0 14 0" />
                     <line x1="12" y1="17" x2="12" y2="22" />
-                    <line x1="8" y1="22" x2="16" y2="22" />
-                  </svg>
-                  {micOpen && <span className="pulse-ring" />}
-                  {micOpen && <span className="pulse-ring delay" />}
-                </button>
-
-                <span className="mic-hint">
-                  {micLocked ? "Mic always on" : "Hold to talk \u00b7 Space"}
-                </span>
-
-                {/* Small toggle: persistent mic on/off */}
-                <button
-                  className={`mic-lock-btn ${micLocked ? "locked" : ""}`}
-                  onClick={toggleMicLock}
-                  aria-label={micLocked ? "Turn off mic" : "Keep mic on"}
-                  title={micLocked ? "Mic is always on \u2014 click to turn off" : "Click to keep mic always on"}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    {micLocked ? (
-                      <>
-                        <rect x="9" y="2" width="6" height="11" rx="3" />
-                        <path d="M5 10a7 7 0 0 0 14 0" />
-                        <line x1="12" y1="17" x2="12" y2="22" />
-                      </>
-                    ) : (
-                      <>
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                        <path d="M17 16.95A7 7 0 0 1 5 12" />
-                        <line x1="12" y1="19" x2="12" y2="22" />
-                      </>
-                    )}
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {statusLabel && (
-              <p className={`hero-status ${status}`}>
-                <span className="dot" />
-                {statusLabel}
-                {resTime != null && (
-                  <span className="res-time">{resTime}s</span>
+                  </>
+                ) : (
+                  <>
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                    <path d="M17 16.95A7 7 0 0 1 5 12" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                  </>
                 )}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* ---- Right: Chat log ---- */}
-        <div className="chat">
-          {messages.length === 0 && !partial && (
-            <div className="empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <span>Your conversation will appear here</span>
-            </div>
-          )}
+            </button>
 
-          {messages.map((m, i) => (
-            <div key={i} className={`bubble ${m.role}`}>
-              <div className="bubble-name">{m.role === "user" ? "You" : "Interviewer"}</div>
-              <p>{m.text}</p>
+            <span className="mic-hint">
+              {micLocked ? "Mic always on" : "Hold to talk \u00b7 Space"}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* ---- Chat history (older messages, below controls) ---- */}
+      {historyMessages.length > 0 && (
+        <div className="chat-history">
+          {historyMessages.map((m, i) => (
+            <div key={i} className="history-line">
+              <span className={`history-role ${m.role}`}>
+                {m.role === "user" ? "You" : "Interviewer"}
+              </span>
+              {m.text}
             </div>
           ))}
-
-          {partial && (
-            <div className="bubble user partial-bubble">
-              <div className="bubble-name">You</div>
-              <p>{partial}</p>
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

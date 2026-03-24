@@ -7,7 +7,7 @@
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
-  background: #0b0f1a;
+  background: #0a0a0a;
   color: #e2e8f0;
   min-height: 100dvh;
   overflow: hidden;
@@ -15,185 +15,154 @@ body {
 
 /* ===================== Layout ===================== */
 .app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
+  width: 100%;
   height: 100dvh;
   display: flex;
   flex-direction: column;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 1.6rem;
-  color: #f1f5f9;
-}
-
-.split {
-  display: flex;
-  gap: 2rem;
-  flex: 1;
-  min-height: 0;
-}
-
-/* ---- Left panel: avatar + controls ---- */
-.left-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: center;
-}
-
-/* ---- Avatar ---- */
-.avatar-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: #111827;
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
+}
+
+/* ===================== Video Stage ===================== */
+.video-stage {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
 .avatar-video {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  display: block;
 }
 
 .avatar-placeholder {
   position: absolute;
-  color: #475569;
-  font-size: 1rem;
-}
-
-/* ---- Controls ---- */
-.controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.session-btn {
-  padding: 0.6rem 1.8rem;
-  border: 2px solid #334155;
-  border-radius: 8px;
-  background: #1e293b;
-  color: #e2e8f0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.session-btn:hover {
-  background: #334155;
-  border-color: #475569;
-}
-
-.session-btn.active {
-  border-color: #ef4444;
-  background: #1c1008;
-  color: #fca5a5;
-}
-
-.session-btn.active:hover {
-  background: #2c1810;
-}
-
-.session-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mic-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.mic-hint {
-  font-size: 0.7rem;
-  color: #475569;
-  user-select: none;
-}
-
-.mic-lock-btn {
-  width: 36px;
-  height: 36px;
-  border: 1.5px solid #1e293b;
-  border-radius: 8px;
-  background: #111827;
-  color: #475569;
-  cursor: pointer;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  color: #333;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
 }
 
-.mic-lock-btn svg {
-  width: 16px;
-  height: 16px;
+/* ---- Subtitle overlay ---- */
+.subtitle-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 2rem 1.2rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  max-height: 45%;
+  overflow: hidden;
 }
 
-.mic-lock-btn:hover {
-  border-color: #334155;
+.subtitle-line {
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  animation: subtitleFadeIn 0.3s ease;
+  max-width: 85%;
+}
+
+.subtitle-line.assistant {
+  color: #fff;
+  font-weight: 500;
+}
+
+.subtitle-line.user {
+  color: #a5b4fc;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.subtitle-line.partial {
   color: #94a3b8;
-  background: #1e293b;
+  font-style: italic;
+  font-size: 0.9rem;
 }
 
-.mic-lock-btn.locked {
-  border-color: #34d399;
-  background: #0d1f17;
-  color: #34d399;
+.subtitle-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: -0.3rem;
 }
 
-.mic-lock-btn.locked:hover {
-  background: #132b1f;
+@keyframes subtitleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* ---- Status ---- */
-.hero-status {
+/* ---- Status badge on video ---- */
+.video-status {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.78rem;
-  color: #94a3b8;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  pointer-events: none;
 }
 
-.hero-status .dot {
+.video-status .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #475569;
 }
 
-.hero-status.connected .dot {
+.video-status.connected .dot {
   background: #34d399;
   box-shadow: 0 0 6px #34d39966;
   animation: blink 1.4s ease-in-out infinite;
 }
 
-.hero-status.thinking .dot {
+.video-status.thinking .dot {
   background: #fbbf24;
   box-shadow: 0 0 6px #fbbf2466;
   animation: blink 0.7s ease-in-out infinite;
 }
 
-.hero-status.error .dot {
+.video-status.error .dot {
   background: #f87171;
 }
 
 .res-time {
-  margin-left: 0.3rem;
-  color: #475569;
+  margin-left: 0.2rem;
+  color: rgba(255, 255, 255, 0.35);
   font-variant-numeric: tabular-nums;
 }
 
@@ -202,15 +171,57 @@ h1 {
   50% { opacity: 0.25; }
 }
 
+/* ===================== Controls Bar ===================== */
+.controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.session-btn {
+  padding: 0.55rem 1.6rem;
+  border: 1.5px solid #222;
+  border-radius: 10px;
+  background: #161616;
+  color: #ccc;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.session-btn:hover {
+  background: #222;
+  border-color: #333;
+  color: #fff;
+}
+
+.session-btn.active {
+  border-color: #dc2626;
+  background: #1a0808;
+  color: #fca5a5;
+}
+
+.session-btn.active:hover {
+  background: #2a1010;
+}
+
+.session-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ===================== Mic Button ===================== */
 .mic-btn {
   position: relative;
-  width: 72px;
-  height: 72px;
-  border: 2px solid #1e293b;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid #222;
   border-radius: 50%;
-  background: #111827;
-  color: #64748b;
+  background: #161616;
+  color: #555;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -219,26 +230,26 @@ h1 {
 }
 
 .mic-btn svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   position: relative;
   z-index: 1;
 }
 
 .mic-btn:hover {
-  border-color: #334155;
-  color: #cbd5e1;
-  background: #1e293b;
+  border-color: #333;
+  color: #aaa;
+  background: #1e1e1e;
 }
 
 .mic-btn.active {
   border-color: #6366f1;
-  background: #1e1b4b;
+  background: #1a1538;
   color: #a5b4fc;
 }
 
 .mic-btn.active:hover {
-  background: #252149;
+  background: #221d45;
 }
 
 .mic-btn.thinking {
@@ -273,105 +284,90 @@ h1 {
   }
 }
 
-/* ===================== Chat (right panel) ===================== */
-.chat {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 1rem 1rem;
+.mic-lock-btn {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid #222;
+  border-radius: 8px;
+  background: #161616;
+  color: #444;
+  cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  background: #0f1629;
-  border-radius: 12px;
-  border: 1px solid #1e293b;
-  scrollbar-width: thin;
-  scrollbar-color: #1e293b transparent;
-}
-
-.chat::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
-}
-
-/* ---- Empty state ---- */
-.empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  color: #1e293b;
+  transition: all 0.2s ease;
 }
 
-.empty svg {
-  width: 36px;
-  height: 36px;
+.mic-lock-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
-.empty span {
-  font-size: 0.8rem;
+.mic-lock-btn:hover {
+  border-color: #333;
+  color: #888;
+  background: #1e1e1e;
 }
 
-/* ---- Bubbles ---- */
-.bubble {
-  max-width: 85%;
-  padding: 0.65rem 0.9rem;
-  border-radius: 14px;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  animation: fadeUp 0.2s ease;
+.mic-lock-btn.locked {
+  border-color: #34d399;
+  background: #0a1a12;
+  color: #34d399;
 }
 
-.bubble:first-child {
-  margin-top: 1rem;
+.mic-lock-btn.locked:hover {
+  background: #102a1a;
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.mic-hint {
+  font-size: 0.65rem;
+  color: #444;
+  user-select: none;
 }
 
-.bubble.user {
-  align-self: flex-end;
-  background: #1e293b;
-  border-bottom-right-radius: 4px;
-  color: #cbd5e1;
+/* ===================== Chat history (scrollable, below video) ===================== */
+.chat-history {
+  width: 100%;
+  max-width: 960px;
+  max-height: 140px;
+  overflow-y: auto;
+  margin-top: 0.8rem;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  scrollbar-width: thin;
+  scrollbar-color: #1a1a1a transparent;
 }
 
-.bubble.assistant {
-  align-self: flex-start;
-  background: linear-gradient(135deg, #1a1340 0%, #162032 100%);
-  border-bottom-left-radius: 4px;
-  color: #e2e8f0;
-  border: 1px solid #1e2d4a;
+.chat-history::-webkit-scrollbar {
+  width: 3px;
 }
 
-.bubble-name {
-  font-size: 0.6rem;
+.chat-history::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 3px;
+}
+
+.history-line {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #555;
+  padding: 0.15rem 0;
+}
+
+.history-line .history-role {
   font-weight: 600;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  margin-right: 0.4rem;
+}
+
+.history-line .history-role.user {
+  color: #6366f1;
+}
+
+.history-line .history-role.assistant {
   color: #475569;
-  margin-bottom: 0.15rem;
-}
-
-.bubble p {
-  margin: 0;
-}
-
-.partial-bubble {
-  opacity: 0.6;
-  border: 1px dashed #334155;
-  background: transparent;
 }
