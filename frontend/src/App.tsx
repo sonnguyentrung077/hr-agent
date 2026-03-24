@@ -232,24 +232,31 @@ export default function App() {
     }
     wsRef.current = null;
 
-    pcRef.current?.close();
-    pcRef.current = null;
-
-    if (videoRef.current) videoRef.current.srcObject = null;
-    if (audioRef.current) audioRef.current.srcObject = null;
-
     setSessionActive(false);
     setPartial("");
     setStatus("idle");
 
-    // Fetch summary via REST after session teardown
+    // Fetch summary BEFORE closing RTC — otherwise the backend cleans up
+    // the session on connectionstatechange and the history is lost.
     if (sid) {
       setSummaryLoading(true);
-      fetch(`${BACKEND}/summary/${sid}`)
+      fetch(`${BACKEND}/summary/${sid}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
-        .then((data) => setSummary(data.summary))
+        .then((data) => { console.log("Summary response:", data); setSummary(data.summary); })
         .catch((err) => console.error("Summary fetch failed:", err))
-        .finally(() => setSummaryLoading(false));
+        .finally(() => {
+          setSummaryLoading(false);
+          // Now safe to tear down RTC
+          pcRef.current?.close();
+          pcRef.current = null;
+          if (videoRef.current) videoRef.current.srcObject = null;
+          if (audioRef.current) audioRef.current.srcObject = null;
+        });
+    } else {
+      pcRef.current?.close();
+      pcRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+      if (audioRef.current) audioRef.current.srcObject = null;
     }
   }, []);
 
@@ -407,15 +414,6 @@ export default function App() {
 
       {/* ---- Controls Bar ---- */}
       <div className="controls-bar">
-        {(summary || summaryLoading) && !sessionActive && (
-          <button
-            className="summary-btn"
-            onClick={() => setShowSummary(true)}
-            disabled={summaryLoading}
-          >
-            {summaryLoading ? "Generating..." : "Show Summary"}
-          </button>
-        )}
         <button
           className={`session-btn ${sessionActive ? "active" : ""}`}
           onClick={sessionActive ? stopSession : startSession}
@@ -423,6 +421,15 @@ export default function App() {
         >
           {loading ? "Connecting..." : sessionActive ? "End Session" : "Start Session"}
         </button>
+        {(summary || summaryLoading) && !sessionActive && (
+          <button
+            className="summary-btn"
+            onClick={() => setShowSummary(true)}
+            disabled={summaryLoading || !summary}
+          >
+            {summaryLoading ? "Generating..." : "Show Summary"}
+          </button>
+        )}
 
         {sessionActive && (
           <>
