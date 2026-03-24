@@ -452,7 +452,7 @@ body {
 /* ---- Bento grid ---- */
 .bento-grid {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: repeat(6, 1fr);
   gap: 0.75rem;
 }
 
@@ -473,6 +473,7 @@ body {
 }
 
 .bento-card.bento-score {
+  grid-column: span 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -519,7 +520,7 @@ body {
 }
 
 .bento-card.bento-summary {
-  grid-column: 1 / -1;
+  grid-column: span 4;
   border-color: #2a2a2a;
 }
 
@@ -528,17 +529,8 @@ body {
 }
 
 .bento-card.bento-pros {
+  grid-column: span 3;
   border-color: #1a3a2a;
-  grid-column: 1 / -1;
-}
-
-@media (min-width: 500px) {
-  .bento-card.bento-pros {
-    grid-column: auto;
-  }
-  .bento-card.bento-cons {
-    grid-column: auto;
-  }
 }
 
 .bento-card.bento-pros h3 {
@@ -546,6 +538,7 @@ body {
 }
 
 .bento-card.bento-cons {
+  grid-column: span 3;
   border-color: #3a1a1a;
 }
 

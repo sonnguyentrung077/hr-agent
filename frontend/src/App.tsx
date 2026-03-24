@@ -486,6 +486,11 @@ export default function App() {
             </button>
             <h2 className="modal-title">Interview Summary</h2>
             <div className="bento-grid">
+              {/* Overview card */}
+              <div className="bento-card bento-summary">
+                <h3>Overview</h3>
+                <div className="bento-content"><p>{summary.summary}</p></div>
+              </div>
               {/* Score card */}
               <div className="bento-card bento-score">
                 <h3>Score</h3>
@@ -496,11 +501,6 @@ export default function App() {
                 <div className="score-bar">
                   <div className="score-fill" style={{ width: `${summary.score}%` }} />
                 </div>
-              </div>
-              {/* Summary card */}
-              <div className="bento-card bento-summary">
-                <h3>Overview</h3>
-                <div className="bento-content"><p>{summary.summary}</p></div>
               </div>
               {/* Pros */}
               <div className="bento-card bento-pros">
