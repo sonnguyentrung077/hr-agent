@@ -9,7 +9,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from .config import AAI_URL, ASSEMBLY_KEY, SYSTEM_PROMPT
 from .dependencies import log
-from .pipeline import generate_summary, run_pipeline
+from .pipeline import run_pipeline
 from .rtc_handler import sessions
 
 ECHO_COOLDOWN = 1.5  # seconds after bot stops before accepting mic audio
@@ -31,6 +31,10 @@ async def ws_endpoint(ws: WebSocket):
         log.info("[WS] Bound to avatar session %s", session_id)
     else:
         log.info("[WS] No avatar session — audio-only mode")
+
+    # Store history reference on session so /summary endpoint can access it
+    if session:
+        session.history = history
 
     async def turn_worker():
         """Process queued turns one at a time."""
@@ -145,16 +149,6 @@ async def ws_endpoint(ws: WebSocket):
             )
             for t in pending:
                 t.cancel()
-
-            # Generate session summary if there was any conversation
-            if len(history) > 1:
-                try:
-                    log.info("[WS] Generating session summary...")
-                    summary = await generate_summary(history)
-                    await ws.send_json({"type": "session_summary", "summary": summary})
-                    log.info("[WS] Session summary sent")
-                except Exception as e:
-                    log.error(f"[WS] Summary generation failed: {e}", exc_info=True)
 
     except Exception as e:
         log.error(f"[WS] {e}", exc_info=True)

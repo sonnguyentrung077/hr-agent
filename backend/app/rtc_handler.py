@@ -36,6 +36,7 @@ class Session:
     pc: RTCPeerConnection
     player: HumanPlayer
     closed: asyncio.Event
+    history: list | None = None
 
 
 sessions: dict[str, Session] = {}

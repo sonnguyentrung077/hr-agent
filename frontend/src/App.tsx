@@ -15,7 +15,6 @@ interface WsMsg {
   status?: string;
   message?: string;
   time?: number;
-  summary?: string;
 }
 
 function parseSummary(raw: string) {
@@ -70,6 +69,7 @@ export default function App() {
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const micReadyRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   /* ---- WS message handler ---- */
   const onWsMessage = useCallback((ev: MessageEvent) => {
@@ -92,10 +92,6 @@ export default function App() {
           { role: "assistant", text: msg.text ?? "" },
         ]);
         setResTime(msg.time ?? null);
-        break;
-      case "session_summary":
-        setSummary(msg.summary ?? null);
-        setSummaryLoading(false);
         break;
       case "error":
       case "tts_error":
@@ -167,6 +163,7 @@ export default function App() {
         new RTCSessionDescription({ sdp: answer.sdp, type: answer.type })
       );
       const sessionId = answer.session_id;
+      sessionIdRef.current = sessionId;
 
       const ws = new WebSocket(`${WS_BASE}/ws?session_id=${sessionId}`);
       wsRef.current = ws;
@@ -224,15 +221,16 @@ export default function App() {
 
   /* ---- Stop session ---- */
   const stopSession = useCallback(() => {
+    const sid = sessionIdRef.current;
     closeMicRefs();
     setMicOpen(false);
     setMicLocked(false);
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "end_session" }));
-      setSummaryLoading(true);
-      // Don't close WS yet — wait for session_summary, then onclose fires
+      wsRef.current.close();
     }
+    wsRef.current = null;
 
     pcRef.current?.close();
     pcRef.current = null;
@@ -243,6 +241,16 @@ export default function App() {
     setSessionActive(false);
     setPartial("");
     setStatus("idle");
+
+    // Fetch summary via REST after session teardown
+    if (sid) {
+      setSummaryLoading(true);
+      fetch(`${BACKEND}/summary/${sid}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
+        .then((data) => setSummary(data.summary))
+        .catch((err) => console.error("Summary fetch failed:", err))
+        .finally(() => setSummaryLoading(false));
+    }
   }, []);
 
   /* ---- Close session on page reload/close ---- */
