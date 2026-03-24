@@ -18,6 +18,14 @@ export default defineConfig(({ mode }) => {
             "ngrok-skip-browser-warning": "true",
           },
         },
+        "/summary": {
+          target: backend,
+          changeOrigin: true,
+          secure: false,
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
+        },
         "/ws": {
           target: backend.replace(/^http/, "ws"),
           ws: true,

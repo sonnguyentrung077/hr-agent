@@ -34,8 +34,8 @@ async def ws_endpoint(ws: WebSocket):
 
     # Store history so /summary endpoint can access it after session cleanup
     if session_id:
-        from main import _session_histories
-        _session_histories[session_id] = history
+        from .dependencies import session_histories
+        session_histories[session_id] = history
 
     async def turn_worker():
         """Process queued turns one at a time."""

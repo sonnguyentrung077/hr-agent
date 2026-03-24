@@ -17,34 +17,11 @@ interface WsMsg {
   time?: number;
 }
 
-function parseSummary(raw: string) {
-  const sections: { title: string; content: string; className: string }[] = [];
-  const parts = raw.split(/^## /m).filter(Boolean);
-  for (const part of parts) {
-    const nlIdx = part.indexOf("\n");
-    const title = (nlIdx >= 0 ? part.slice(0, nlIdx) : part).trim();
-    const content = nlIdx >= 0 ? part.slice(nlIdx + 1).trim() : "";
-    const lower = title.toLowerCase();
-    const className = lower.includes("pro")
-      ? "bento-pros"
-      : lower.includes("con")
-        ? "bento-cons"
-        : "bento-summary";
-    sections.push({ title, content, className });
-  }
-  if (sections.length === 0) {
-    sections.push({ title: "Summary", content: raw, className: "bento-summary" });
-  }
-  return sections.map((s, i) => (
-    <div key={i} className={`bento-card ${s.className}`}>
-      <h3>{s.title}</h3>
-      <div className="bento-content">
-        {s.content.split("\n").map((line, j) => (
-          <p key={j}>{line}</p>
-        ))}
-      </div>
-    </div>
-  ));
+interface SummaryData {
+  summary: string;
+  pros: string[];
+  cons: string[];
+  score: number;
 }
 
 export default function App() {
@@ -56,7 +33,7 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [resTime, setResTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [summary, setSummary] = useState<SummaryData | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
@@ -250,7 +227,7 @@ export default function App() {
       setSummaryLoading(true);
       fetch(`${BACKEND}/summary/${sid}`)
         .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
-        .then((data) => setSummary(data.summary))
+        .then((data: SummaryData) => setSummary(data))
         .catch((err) => console.error("Summary fetch failed:", err))
         .finally(() => setSummaryLoading(false));
     }
@@ -502,7 +479,36 @@ export default function App() {
             </button>
             <h2 className="modal-title">Interview Summary</h2>
             <div className="bento-grid">
-              {parseSummary(summary)}
+              {/* Score card */}
+              <div className="bento-card bento-score">
+                <h3>Score</h3>
+                <div className="score-display">
+                  <span className="score-number">{summary.score}</span>
+                  <span className="score-max">/100</span>
+                </div>
+                <div className="score-bar">
+                  <div className="score-fill" style={{ width: `${summary.score}%` }} />
+                </div>
+              </div>
+              {/* Summary card */}
+              <div className="bento-card bento-summary">
+                <h3>Overview</h3>
+                <div className="bento-content"><p>{summary.summary}</p></div>
+              </div>
+              {/* Pros */}
+              <div className="bento-card bento-pros">
+                <h3>Pros</h3>
+                <div className="bento-content">
+                  {summary.pros.map((p, i) => <p key={i}>+ {p}</p>)}
+                </div>
+              </div>
+              {/* Cons */}
+              <div className="bento-card bento-cons">
+                <h3>Cons</h3>
+                <div className="bento-content">
+                  {summary.cons.map((c, i) => <p key={i}>- {c}</p>)}
+                </div>
+              </div>
             </div>
           </div>
         </div>
