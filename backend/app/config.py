@@ -17,7 +17,7 @@ CARTESIA_KEY = os.getenv("CARTESIA_KEY")
 
 MODEL = os.getenv("MODEL", "gpt-4.1-nano")
 CARTESIA_MODEL = "sonic-3"
-CARTESIA_VOICE_ID = "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"
+CARTESIA_VOICE_ID = "ca590fdc-df56-4d2e-94a4-ef5b423c7ddf"
 
 # ─── Audio ───────────────────────────────────────────────────────────────────
 
