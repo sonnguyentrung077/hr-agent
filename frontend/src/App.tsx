@@ -108,6 +108,9 @@ export default function App() {
     setSummary(null);
     setSummaryLoading(false);
     setShowSummary(false);
+    setMessages([]);
+    setPartial("");
+    setResTime(null);
 
     if (wsRef.current) {
       wsRef.current.onclose = null;

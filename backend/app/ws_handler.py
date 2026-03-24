@@ -32,9 +32,10 @@ async def ws_endpoint(ws: WebSocket):
     else:
         log.info("[WS] No avatar session — audio-only mode")
 
-    # Store history reference on session so /summary endpoint can access it
-    if session:
-        session.history = history
+    # Store history so /summary endpoint can access it after session cleanup
+    if session_id:
+        from main import _session_histories
+        _session_histories[session_id] = history
 
     async def turn_worker():
         """Process queued turns one at a time."""

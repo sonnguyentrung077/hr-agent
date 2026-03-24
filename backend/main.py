@@ -14,8 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import config
 from app.avatar import load_avatar, load_model, warm_up
 from app.pipeline import generate_summary
-from app.rtc_handler import router as rtc_router, sessions
+from app.rtc_handler import router as rtc_router
 from app.ws_handler import ws_endpoint
+
+# History survives session cleanup — keyed by session_id
+_session_histories: dict[str, list[dict]] = {}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,10 +63,12 @@ app.websocket("/ws")(ws_endpoint)
 @app.get("/summary/{session_id}")
 async def get_summary(session_id: str):
     """Generate an interview summary from the session's conversation history."""
-    session = sessions.get(session_id)
-    if not session or not session.history or len(session.history) <= 1:
+    history = _session_histories.get(session_id)
+    if not history or len(history) <= 1:
         raise HTTPException(status_code=404, detail="No conversation history for this session")
-    summary = await generate_summary(session.history)
+    summary = await generate_summary(history)
+    # Clean up after generating
+    _session_histories.pop(session_id, None)
     return {"summary": summary}
 
 if __name__ == "__main__":
