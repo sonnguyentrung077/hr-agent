@@ -27,6 +27,16 @@ if TYPE_CHECKING:
 
 AVATAR_CHUNK = SAMPLE_RATE_AVATAR // 50  # 320 samples (20ms at 16kHz)
 
+SUMMARY_PROMPT = (
+    "Analyze the following HR interview conversation. Provide your response in this format:\n\n"
+    "## Summary\n"
+    "A brief 2-3 sentence overview of the interview.\n\n"
+    "## Candidate Pros\n"
+    "- Bullet points of strengths and positive indicators\n\n"
+    "## Candidate Cons\n"
+    "- Bullet points of weaknesses and areas of concern\n"
+)
+
 
 async def run_pipeline(
     ws: WebSocket,
@@ -235,3 +245,16 @@ async def _avatar_feeder(
         )
 
     log.info(f"[AVATAR_FEED] {n_chunks} chunks fed to avatar engine")
+
+
+# ─── Session summary ──────────────────────────────────────────────────────
+
+
+async def generate_summary(history: list[dict]) -> str:
+    """Generate a pros/cons summary of the interview from conversation history."""
+    messages = history + [{"role": "user", "content": SUMMARY_PROMPT}]
+    resp = await openai_client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+    )
+    return resp.choices[0].message.content

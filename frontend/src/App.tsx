@@ -15,6 +15,37 @@ interface WsMsg {
   status?: string;
   message?: string;
   time?: number;
+  summary?: string;
+}
+
+function parseSummary(raw: string) {
+  const sections: { title: string; content: string; className: string }[] = [];
+  const parts = raw.split(/^## /m).filter(Boolean);
+  for (const part of parts) {
+    const nlIdx = part.indexOf("\n");
+    const title = (nlIdx >= 0 ? part.slice(0, nlIdx) : part).trim();
+    const content = nlIdx >= 0 ? part.slice(nlIdx + 1).trim() : "";
+    const lower = title.toLowerCase();
+    const className = lower.includes("pro")
+      ? "bento-pros"
+      : lower.includes("con")
+        ? "bento-cons"
+        : "bento-summary";
+    sections.push({ title, content, className });
+  }
+  if (sections.length === 0) {
+    sections.push({ title: "Summary", content: raw, className: "bento-summary" });
+  }
+  return sections.map((s, i) => (
+    <div key={i} className={`bento-card ${s.className}`}>
+      <h3>{s.title}</h3>
+      <div className="bento-content">
+        {s.content.split("\n").map((line, j) => (
+          <p key={j}>{line}</p>
+        ))}
+      </div>
+    </div>
+  ));
 }
 
 export default function App() {
@@ -26,6 +57,9 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [resTime, setResTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -59,6 +93,10 @@ export default function App() {
         ]);
         setResTime(msg.time ?? null);
         break;
+      case "session_summary":
+        setSummary(msg.summary ?? null);
+        setSummaryLoading(false);
+        break;
       case "error":
       case "tts_error":
         setStatus("error");
@@ -70,6 +108,10 @@ export default function App() {
   const startSession = useCallback(async () => {
     if (loading) return;
     setLoading(true);
+
+    setSummary(null);
+    setSummaryLoading(false);
+    setShowSummary(false);
 
     if (wsRef.current) {
       wsRef.current.onclose = null;
@@ -188,9 +230,9 @@ export default function App() {
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "end_session" }));
-      wsRef.current.close();
+      setSummaryLoading(true);
+      // Don't close WS yet — wait for session_summary, then onclose fires
     }
-    wsRef.current = null;
 
     pcRef.current?.close();
     pcRef.current = null;
@@ -357,6 +399,15 @@ export default function App() {
 
       {/* ---- Controls Bar ---- */}
       <div className="controls-bar">
+        {(summary || summaryLoading) && !sessionActive && (
+          <button
+            className="summary-btn"
+            onClick={() => setShowSummary(true)}
+            disabled={summaryLoading}
+          >
+            {summaryLoading ? "Generating..." : "Show Summary"}
+          </button>
+        )}
         <button
           className={`session-btn ${sessionActive ? "active" : ""}`}
           onClick={sessionActive ? stopSession : startSession}
@@ -428,6 +479,21 @@ export default function App() {
               {m.text}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ---- Summary Modal ---- */}
+      {showSummary && summary && (
+        <div className="modal-backdrop" onClick={() => setShowSummary(false)}>
+          <div className="modal-bento" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSummary(false)}>
+              &times;
+            </button>
+            <h2 className="modal-title">Interview Summary</h2>
+            <div className="bento-grid">
+              {parseSummary(summary)}
+            </div>
+          </div>
         </div>
       )}
     </div>
