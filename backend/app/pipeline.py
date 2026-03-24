@@ -28,13 +28,10 @@ if TYPE_CHECKING:
 AVATAR_CHUNK = SAMPLE_RATE_AVATAR // 50  # 320 samples (20ms at 16kHz)
 
 SUMMARY_PROMPT = (
-    "Analyze the following HR interview conversation. Provide your response in this format:\n\n"
-    "## Summary\n"
-    "A brief 2-3 sentence overview of the interview.\n\n"
-    "## Candidate Pros\n"
-    "- Bullet points of strengths and positive indicators\n\n"
-    "## Candidate Cons\n"
-    "- Bullet points of weaknesses and areas of concern\n"
+    "Analyze the interview and respond with ONLY valid JSON (no markdown fences), using this exact schema:\n"
+    '{"summary": "2-3 sentence overview", "pros": ["strength 1", "strength 2"], '
+    '"cons": ["weakness 1", "weakness 2"], "score": 65}\n'
+    "score is 0-100 representing overall candidate fit. Be objective and specific."
 )
 
 
@@ -250,11 +247,28 @@ async def _avatar_feeder(
 # ─── Session summary ──────────────────────────────────────────────────────
 
 
-async def generate_summary(history: list[dict]) -> str:
-    """Generate a pros/cons summary of the interview from conversation history."""
-    messages = history + [{"role": "user", "content": SUMMARY_PROMPT}]
+async def generate_summary(history: list[dict]) -> dict:
+    """Generate a structured JSON summary of the interview."""
+    import json as _json
+
+    lines = []
+    for msg in history:
+        if msg["role"] == "system":
+            continue
+        speaker = "Interviewer" if msg["role"] == "assistant" else "Candidate"
+        lines.append(f"{speaker}: {msg['content']}")
+    transcript = "\n".join(lines)
+
+    messages = [
+        {"role": "system", "content": "You are an HR analyst. Respond with ONLY valid JSON, no markdown fences."},
+        {"role": "user", "content": f"Analyze this HR interview transcript:\n\n{transcript}\n\n{SUMMARY_PROMPT}"},
+    ]
     resp = await openai_client.chat.completions.create(
         model=MODEL,
         messages=messages,
     )
-    return resp.choices[0].message.content
+    raw = resp.choices[0].message.content.strip()
+    # Strip markdown fences if model adds them anyway
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    return _json.loads(raw)
