@@ -1,7 +1,6 @@
 """Configuration: environment variables and constants."""
 
 import os
-from urllib.parse import urlencode
 
 from dotenv import load_dotenv
 
@@ -10,7 +9,6 @@ load_dotenv()
 # ─── API Keys ────────────────────────────────────────────────────────────────
 
 OPENAI_KEY = os.getenv("OPENAI_KEY")
-ASSEMBLY_KEY = os.getenv("ASSEMBLY_KEY")
 CARTESIA_KEY = os.getenv("CARTESIA_KEY")
 
 # ─── Models ──────────────────────────────────────────────────────────────────
@@ -52,14 +50,13 @@ CORS_ORIGINS = [
     if o.strip()
 ]
 
-# ─── AssemblyAI ──────────────────────────────────────────────────────────────
+# ─── Local Whisper STT ────────────────────────────────────────────────────────
 
-AAI_PARAMS = {
-    "sample_rate": SAMPLE_RATE_IN,
-    "speech_model": "whisper-rt",
-    "language_detection": True, 
-    "turn_is_formatted": True, # hello -> Hello.
-    "min_turn_silence": 800,
-    "max_turn_silence": 3600,
-}
-AAI_URL = f"wss://streaming.assemblyai.com/v3/ws?{urlencode(AAI_PARAMS)}"
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "deepdml/faster-whisper-large-v3-turbo-ct2")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cuda")
+WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "float16")
+WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", None)  # None = auto-detect
+
+# Turn detection
+MIN_TURN_SILENCE_MS = int(os.getenv("MIN_TURN_SILENCE_MS", "800"))
+PARTIAL_INTERVAL_MS = int(os.getenv("PARTIAL_INTERVAL_MS", "500"))

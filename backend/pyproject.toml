@@ -8,6 +8,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "openai>=1.50.0",
     "websockets>=13.0",
+    "faster-whisper>=1.1.0",
     "cartesia>=1.0.0",
     # Avatar / Wav2Lip
     "torch>=2.0.0",

@@ -1,6 +1,6 @@
 """Voice assistant backend with Wav2Lip avatar.
 
-AssemblyAI STT -> GPT -> Cartesia TTS -> Wav2Lip -> WebRTC
+Local Whisper STT -> GPT -> Cartesia TTS -> Wav2Lip -> WebRTC
 """
 
 import logging
@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.avatar import load_avatar, load_model, warm_up
+from app.stt import WhisperSTT
 from app.dependencies import session_histories
 from app.pipeline import generate_summary
 from app.rtc_handler import router as rtc_router
@@ -26,6 +27,11 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: load Whisper STT model
+    stt = WhisperSTT(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE_TYPE)
+    stt.warmup()
+    app.state.stt = stt
+
     # Startup: load Wav2Lip model + avatar data + warm up GPU
     model = load_model(config.WAV2LIP_MODEL_PATH)
     warm_up(config.BATCH_SIZE, model, 256)

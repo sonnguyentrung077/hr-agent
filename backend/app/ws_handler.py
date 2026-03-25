@@ -1,16 +1,16 @@
-"""WebSocket endpoint: browser <-> AssemblyAI STT <-> pipeline."""
+"""WebSocket endpoint: browser <-> local Whisper STT <-> pipeline."""
 
 import asyncio
 import json
 import time
 
-import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
-from .config import AAI_URL, ASSEMBLY_KEY, SYSTEM_PROMPT
+from .config import SYSTEM_PROMPT
 from .dependencies import log
 from .pipeline import run_pipeline
 from .rtc_handler import sessions
+from .stt import StreamingSession
 
 ECHO_COOLDOWN = 0.2  # seconds after bot stops before accepting mic audio
 
@@ -72,97 +72,69 @@ async def ws_endpoint(ws: WebSocket):
         log.info(f"[QUEUE] Enqueued turn (depth={turn_queue.qsize()}): {text[:80]!r}")
         await turn_queue.put(text)
 
-    log.info(f"[AssemblyAI] Connecting to {AAI_URL[:80]}...")
+    # --- Local STT callbacks ---
+
+    async def on_partial(text: str):
+        if not text:
+            return
+        await ws.send_json({"type": "partial_transcript", "text": text})
+
+    async def on_final(text: str):
+        if not text:
+            return
+        # Drop echo: while bot speaks OR during cooldown
+        if responding.is_set() or (time.time() - respond_end_time[0]) < ECHO_COOLDOWN:
+            log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
+            return
+        if text.lower().strip(" .!,") in HALLUCINATION_PHRASES:
+            log.info(f"[STT DROP] hallucination filtered: {text!r}")
+            return
+        log.info(f"[STT FINAL] {text}")
+        await ws.send_json({"type": "final_transcript", "text": text})
+        await enqueue_turn(text)
+
+    # --- Create local STT session ---
+
+    stt_model = ws.app.state.stt
+    stt_session = StreamingSession(stt_model, on_partial=on_partial, on_final=on_final)
+
     try:
-        async with websockets.connect(
-            AAI_URL, additional_headers={"Authorization": ASSEMBLY_KEY}
-        ) as aai:
-            log.info("[AssemblyAI] Connected")
-
-            async def recv_aai():
-                async for raw in aai:
-                    msg = json.loads(raw)
-                    t = msg.get("type")
-                    log.debug(f"[AssemblyAI RAW] {json.dumps(msg)[:300]}")
-                    if t == "Begin":
-                        log.info(f"[AssemblyAI] Session started: {msg.get('id')}")
-                    elif t == "Turn":
-                        text = msg.get("transcript", "").strip()
-                        is_final = msg.get("end_of_turn", False)
-                        log.info(
-                            f"[AssemblyAI Turn] final={is_final} "
-                            f"turn_is_formatted={msg.get('turn_is_formatted')} "
-                            f"end_of_turn={msg.get('end_of_turn')} "
-                            f"language={msg.get('language_code')} "
-                            f"language_confidence={msg.get('language_confidence')} "
-                            f"utterance={msg.get('utterance', '')[:80]!r} "
-                            f"text={text[:80]!r}"
-                        )
-                        if is_final and text:
-                            # Drop echo: while bot speaks OR during cooldown
-                            if responding.is_set() or (time.time() - respond_end_time[0]) < ECHO_COOLDOWN:
-                                log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
-                                continue
-                            if text.lower().strip(" .!,") in HALLUCINATION_PHRASES:
-                                log.info(f"[STT DROP] hallucination filtered: {text!r}")
-                                continue
-                            log.info(f"[STT FINAL] {text}")
-                            await ws.send_json(
-                                {"type": "final_transcript", "text": text}
-                            )
-                            await enqueue_turn(text)
-                        elif text:
-                            await ws.send_json(
-                                {"type": "partial_transcript", "text": text}
-                            )
-                    elif t == "Termination":
-                        log.info("[AssemblyAI] Session terminated")
-                    else:
-                        log.info(
-                            f"[AssemblyAI] Unknown type: {t} — {json.dumps(msg)[:200]}"
-                        )
-
-            async def recv_client():
-                try:
-                    while True:
-                        msg = await ws.receive()
-                        if msg.get("type") == "websocket.disconnect":
+        async def recv_client():
+            try:
+                while True:
+                    msg = await ws.receive()
+                    if msg.get("type") == "websocket.disconnect":
+                        break
+                    if "bytes" in msg:
+                        # Gate mic audio: don't feed echo into STT
+                        if not responding.is_set() and (time.time() - respond_end_time[0]) > ECHO_COOLDOWN:
+                            await stt_session.feed_audio(msg["bytes"])
+                    elif "text" in msg:
+                        ctrl = json.loads(msg["text"])
+                        if ctrl.get("type") == "end_session":
+                            stt_session.close()
                             break
-                        if "bytes" in msg:
-                            # Gate mic audio: don't feed echo into STT
-                            if not responding.is_set() and (time.time() - respond_end_time[0]) > ECHO_COOLDOWN:
-                                await aai.send(msg["bytes"])
-                        elif "text" in msg:
-                            ctrl = json.loads(msg["text"])
-                            if ctrl.get("type") == "end_session":
-                                await aai.send(
-                                    json.dumps({"type": "Terminate"})
-                                )
-                                break
-                except WebSocketDisconnect:
-                    try:
-                        await aai.send(json.dumps({"type": "Terminate"}))
-                    except Exception:
-                        pass
+            except WebSocketDisconnect:
+                stt_session.close()
 
-            async def watch_rtc():
-                if not session_closed:
-                    return
-                await session_closed.wait()
-                log.info("[WS] RTC session %s closed — tearing down", session_id)
+        async def watch_rtc():
+            if not session_closed:
+                return
+            await session_closed.wait()
+            log.info("[WS] RTC session %s closed — tearing down", session_id)
 
-            worker_task = asyncio.create_task(turn_worker())
-            tasks = [
-                asyncio.create_task(recv_aai()),
-                asyncio.create_task(recv_client()),
-                asyncio.create_task(watch_rtc()),
-                worker_task,
-            ]
-            done, pending = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED
-            )
-            for t in pending:
-                t.cancel()
+        worker_task = asyncio.create_task(turn_worker())
+        tasks = [
+            asyncio.create_task(stt_session.run()),
+            asyncio.create_task(recv_client()),
+            asyncio.create_task(watch_rtc()),
+            worker_task,
+        ]
+        done, pending = await asyncio.wait(
+            tasks, return_when=asyncio.FIRST_COMPLETED
+        )
+        for t in pending:
+            t.cancel()
 
     except Exception as e:
         log.error(f"[WS] {e}", exc_info=True)
@@ -171,6 +143,7 @@ async def ws_endpoint(ws: WebSocket):
         except Exception:
             pass
     finally:
+        stt_session.close()
         try:
             await ws.close()
         except Exception:
