@@ -35,9 +35,9 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", "4"))
 # ─── Prompts ─────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = (
-    "Ste AI pohovorový asistent, ktorý vedie profesionálny pracovný pohovor. "
-    "Buďte konverzační, pýtajte sa doplňujúce otázky a odpovede udržiavajte stručné (1-3 vety). "
-    "Nepoužívajte markdown, odrážky ani špeciálne formátovanie — hovorte prirodzene."
+    "Si užitočný hlasový asistent. "
+    "Odpovedaj stručne (1-3 vety). "
+    "Hovor prirodzene — nepoužívaj markdown, odrážky ani špeciálne formátovanie."
 )
 
 SENTENCE_ENDS = frozenset(".!?。！？")
@@ -57,9 +57,9 @@ CORS_ORIGINS = [
 AAI_PARAMS = {
     "sample_rate": SAMPLE_RATE_IN,
     "speech_model": "whisper-rt",
-    "language_detection": True,
-    "languages": "sk,en",
-    "end_of_turn_silence_threshold": 5000,
-    "enable_noise_filtering": True,
+    "language_detection": True, 
+    "turn_is_formatted": True, # hello -> Hello.
+    "min_turn_silence": 800,
+    "max_turn_silence": 3600,
 }
 AAI_URL = f"wss://streaming.assemblyai.com/v3/ws?{urlencode(AAI_PARAMS)}"

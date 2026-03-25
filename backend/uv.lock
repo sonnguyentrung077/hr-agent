@@ -652,6 +652,7 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "torch" },
+    { name = "tqdm" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
 ]
@@ -670,6 +671,7 @@ requires-dist = [
     { name = "resampy", specifier = ">=0.4.0" },
     { name = "scipy", specifier = ">=1.11.0" },
     { name = "torch", specifier = ">=2.0.0" },
+    { name = "tqdm", specifier = ">=4.60.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
     { name = "websockets", specifier = ">=13.0" },
 ]

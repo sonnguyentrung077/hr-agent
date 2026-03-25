@@ -12,7 +12,16 @@ from .dependencies import log
 from .pipeline import run_pipeline
 from .rtc_handler import sessions
 
-ECHO_COOLDOWN = 1.5  # seconds after bot stops before accepting mic audio
+ECHO_COOLDOWN = 0.2  # seconds after bot stops before accepting mic audio
+
+# Common Whisper hallucinations produced from silence / noise
+HALLUCINATION_PHRASES = {
+    "thank you", "thanks", "thank you.", "thanks.",
+    "thank you for watching", "thanks for watching",
+    "bye", "bye bye", "bye.",
+    "obrigado", "obrigada", "obrigado.", "obrigada.",
+    "продолжение следует", "阿 会", "gracias", "yeah"
+}
 
 
 async def ws_endpoint(ws: WebSocket):
@@ -63,35 +72,39 @@ async def ws_endpoint(ws: WebSocket):
         log.info(f"[QUEUE] Enqueued turn (depth={turn_queue.qsize()}): {text[:80]!r}")
         await turn_queue.put(text)
 
-    log.info(f"[AAI] Connecting to {AAI_URL[:80]}...")
+    log.info(f"[AssemblyAI] Connecting to {AAI_URL[:80]}...")
     try:
         async with websockets.connect(
             AAI_URL, additional_headers={"Authorization": ASSEMBLY_KEY}
         ) as aai:
-            log.info("[AAI] Connected")
+            log.info("[AssemblyAI] Connected")
 
             async def recv_aai():
                 async for raw in aai:
                     msg = json.loads(raw)
                     t = msg.get("type")
-                    log.debug(f"[AAI RAW] {json.dumps(msg)[:300]}")
+                    log.debug(f"[AssemblyAI RAW] {json.dumps(msg)[:300]}")
                     if t == "Begin":
-                        log.info(f"[AAI] Session started: {msg.get('id')}")
+                        log.info(f"[AssemblyAI] Session started: {msg.get('id')}")
                     elif t == "Turn":
                         text = msg.get("transcript", "").strip()
-                        is_final = msg.get(
-                            "turn_is_formatted", False
-                        ) or msg.get("end_of_turn", False)
+                        is_final = msg.get("end_of_turn", False)
                         log.info(
-                            f"[AAI Turn] final={is_final} "
+                            f"[AssemblyAI Turn] final={is_final} "
                             f"turn_is_formatted={msg.get('turn_is_formatted')} "
                             f"end_of_turn={msg.get('end_of_turn')} "
+                            f"language={msg.get('language_code')} "
+                            f"language_confidence={msg.get('language_confidence')} "
+                            f"utterance={msg.get('utterance', '')[:80]!r} "
                             f"text={text[:80]!r}"
                         )
                         if is_final and text:
                             # Drop echo: while bot speaks OR during cooldown
                             if responding.is_set() or (time.time() - respond_end_time[0]) < ECHO_COOLDOWN:
                                 log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
+                                continue
+                            if text.lower().strip(" .!,") in HALLUCINATION_PHRASES:
+                                log.info(f"[STT DROP] hallucination filtered: {text!r}")
                                 continue
                             log.info(f"[STT FINAL] {text}")
                             await ws.send_json(
@@ -103,10 +116,10 @@ async def ws_endpoint(ws: WebSocket):
                                 {"type": "partial_transcript", "text": text}
                             )
                     elif t == "Termination":
-                        log.info("[AAI] Session terminated")
+                        log.info("[AssemblyAI] Session terminated")
                     else:
                         log.info(
-                            f"[AAI] Unknown type: {t} — {json.dumps(msg)[:200]}"
+                            f"[AssemblyAI] Unknown type: {t} — {json.dumps(msg)[:200]}"
                         )
 
             async def recv_client():

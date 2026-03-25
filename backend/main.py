@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
         log.info("[SHUTDOWN] Closing session %s", sid)
         await session.pc.close()
     sessions.clear()
+    session_histories.clear()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -63,11 +64,11 @@ async def get_summary(session_id: str):
     """Generate an interview summary from the session's conversation history."""
     log.info("[SUMMARY] Request for session %s (available: %s)", session_id, list(session_histories.keys()))
     history = session_histories.get(session_id)
+    log.info("[HISTORY CONTENT] %s", history)
     if not history or len(history) <= 1:
         raise HTTPException(status_code=404, detail="No conversation history for this session")
     log.info("[SUMMARY] Generating summary from %d messages...", len(history))
     result = await generate_summary(history)
-    # Clean up after generating
     session_histories.pop(session_id, None)
     log.info("[SUMMARY] Done")
     return result
@@ -75,4 +76,4 @@ async def get_summary(session_id: str):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", reload=True, host="0.0.0.0", port=config.PORT)
+    uvicorn.run("main:app", reload=False, host="0.0.0.0", port=config.PORT)

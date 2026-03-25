@@ -13,5 +13,5 @@ log = logging.getLogger("voice")
 
 openai_client = AsyncOpenAI(api_key=OPENAI_KEY)
 
-# Conversation histories keyed by session_id — survives session cleanup
+# Conversation histories keyed by session_id
 session_histories: dict[str, list[dict]] = {}

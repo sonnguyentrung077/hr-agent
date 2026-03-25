@@ -14,6 +14,7 @@ from aiortc.rtcrtpsender import RTCRtpSender
 from fastapi import APIRouter, Request
 
 from .avatar import AvatarEngine
+from .dependencies import session_histories
 from .webrtc_tracks import HumanPlayer
 
 log = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ async def offer(request: Request):
                 if pc.connectionState in ("disconnected", "failed"):
                     log.info("[RTC] session=%s did not recover — closing", session_id)
                     session = sessions.pop(session_id, None)
+                    session_histories.pop(session_id, None)
                     if session:
                         session.closed.set()
                         await session.pc.close()
@@ -114,6 +116,7 @@ async def offer(request: Request):
             if _disconnect_task and not _disconnect_task.done():
                 _disconnect_task.cancel()
             session = sessions.pop(session_id, None)
+            session_histories.pop(session_id, None)
             if session:
                 log.info("[RTC] Cleaning up session %s", session_id)
                 session.closed.set()
