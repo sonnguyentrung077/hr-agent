@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 # RMS energy threshold for silence detection (PCM16 range)
 SILENCE_RMS_THRESHOLD = 300
 # Minimum audio length (seconds) before attempting transcription
-MIN_AUDIO_SECONDS = 0.3
+MIN_AUDIO_SECONDS = 0.2
 
 
 class WhisperSTT:

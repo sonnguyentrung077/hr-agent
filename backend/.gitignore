@@ -32,3 +32,5 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+data/avatars
+data/
