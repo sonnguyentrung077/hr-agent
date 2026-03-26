@@ -9,6 +9,8 @@ dependencies = [
     "openai>=1.50.0",
     "websockets>=13.0",
     "faster-whisper>=1.1.0",
+    "whisper-streaming>=0.1.0",
+    "opus-fast-mosestokenizer>=0.0.8",
     "cartesia>=1.0.0",
     # Avatar / Wav2Lip
     "torch>=2.0.0",

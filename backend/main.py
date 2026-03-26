@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.avatar import load_avatar, load_model, warm_up
-from app.stt import WhisperSTT
+from app.stt import WhisperBackend
 from app.dependencies import session_histories
 from app.pipeline import generate_summary
 from app.rtc_handler import router as rtc_router
@@ -27,8 +27,11 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: load Whisper STT model
-    stt = WhisperSTT(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE_TYPE)
+    # Startup: load Whisper STT model (streaming via LocalAgreement)
+    stt = WhisperBackend(
+        config.WHISPER_MODEL, config.WHISPER_DEVICE,
+        config.WHISPER_COMPUTE_TYPE, config.WHISPER_LANGUAGE,
+    )
     stt.warmup()
     app.state.stt = stt
 

@@ -60,3 +60,8 @@ WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", None)  # None = auto-detect
 # Turn detection
 MIN_TURN_SILENCE_MS = int(os.getenv("MIN_TURN_SILENCE_MS", "800"))
 PARTIAL_INTERVAL_MS = int(os.getenv("PARTIAL_INTERVAL_MS", "500"))
+
+# Streaming buffer
+WHISPER_BUFFER_TRIMMING_SEC = float(os.getenv("WHISPER_BUFFER_TRIMMING_SEC", "15"))
+WHISPER_AUDIO_CHUNK_SEC = float(os.getenv("WHISPER_AUDIO_CHUNK_SEC", "1.0"))
+WHISPER_PROMPT_SIZE = int(os.getenv("WHISPER_PROMPT_SIZE", "200"))

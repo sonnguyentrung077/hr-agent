@@ -14,15 +14,6 @@ from .stt import StreamingSession
 
 ECHO_COOLDOWN = 0.2  # seconds after bot stops before accepting mic audio
 
-# Common Whisper hallucinations produced from silence / noise
-HALLUCINATION_PHRASES = {
-    "thank you", "thanks", "thank you.", "thanks.",
-    "thank you for watching", "thanks for watching",
-    "bye", "bye bye", "bye.",
-    "obrigado", "obrigada", "obrigado.", "obrigada.",
-    "продолжение следует", "阿 会", "gracias", "yeah"
-}
-
 
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
@@ -85,9 +76,6 @@ async def ws_endpoint(ws: WebSocket):
         # Drop echo: while bot speaks OR during cooldown
         if responding.is_set() or (time.time() - respond_end_time[0]) < ECHO_COOLDOWN:
             log.info(f"[STT DROP] echo suppressed: {text[:80]!r}")
-            return
-        if text.lower().strip(" .!,") in HALLUCINATION_PHRASES:
-            log.info(f"[STT DROP] hallucination filtered: {text!r}")
             return
         log.info(f"[STT FINAL] {text}")
         await ws.send_json({"type": "final_transcript", "text": text})
